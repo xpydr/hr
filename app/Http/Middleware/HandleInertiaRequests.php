@@ -38,6 +38,11 @@ class HandleInertiaRequests extends Middleware
     {
         [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
 
+        $unreadNotificationCount = $request->user()
+            ?->receivedNotifications()
+            ->whereNull('read_at')
+            ->count() ?? 0;
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
@@ -46,6 +51,7 @@ class HandleInertiaRequests extends Middleware
                 'user' => $request->user(),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            'unreadNotificationCount' => $unreadNotificationCount,
         ];
     }
 }
