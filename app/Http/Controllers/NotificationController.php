@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreNotificationRequest;
 use App\Models\Notification;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -33,8 +35,18 @@ class NotificationController extends Controller
                 'created_at' => $notification->created_at->toDateTimeString(),
             ]);
 
+        $users = User::query()
+            ->latest()
+            ->get()
+            ->map(fn (User $user) => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+            ]);
+
         return Inertia::render('notifications/index', [
             'notifications' => $notifications,
+            'users' => $users,
         ]);
     }
 
@@ -65,5 +77,26 @@ class NotificationController extends Controller
             ->update(['read_at' => now()]);
 
         return redirect()->route('notifications.index');
+    }
+
+    /**
+     * Store a newly created notification.
+     */
+    public function store(StoreNotificationRequest $request): RedirectResponse
+    {
+        $data = $request->validated();
+        $senderId = $request->user()->id;
+
+        foreach ($data['recipient_ids'] as $recipientId) {
+            Notification::create([
+                'sender_id' => $senderId,
+                'recipient_id' => $recipientId,
+                'title' => $data['title'],
+                'message' => $data['message'],
+                'type' => $data['type'],
+            ]);
+        }
+
+        return redirect()->route('notifications.index')->with('success', 'Notification(s) created successfully.');
     }
 }

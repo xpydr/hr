@@ -1,12 +1,27 @@
+import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Spinner } from '@/components/ui/spinner';
 import AppLayout from '@/layouts/app-layout';
-import { markAsRead, markAllAsRead } from '@/actions/App/Http/Controllers/NotificationController';
+import { markAsRead, markAllAsRead, store } from '@/actions/App/Http/Controllers/NotificationController';
 import notifications from '@/routes/notifications';
-import { type BreadcrumbItem } from '@/types';
-import { Head, router } from '@inertiajs/react';
-import { Bell, Check, CheckCheck } from 'lucide-react';
+import { type BreadcrumbItem, type SharedData } from '@/types';
+import { Form, Head, router, usePage } from '@inertiajs/react';
+import { Bell, Check, CheckCheck, Plus } from 'lucide-react';
+import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -28,11 +43,24 @@ interface Notification {
     created_at: string;
 }
 
-interface NotificationsIndexProps {
-    notifications: Notification[];
+interface UserOption {
+    id: number;
+    name: string;
+    email: string;
 }
 
-export default function NotificationsIndex({ notifications }: NotificationsIndexProps) {
+interface NotificationsIndexProps {
+    notifications: Notification[];
+    users: UserOption[];
+    success?: string;
+}
+
+export default function NotificationsIndex({ notifications, users, success }: NotificationsIndexProps) {
+    const { auth } = usePage<SharedData>().props;
+    const isAdmin = auth.user.role === 'admin';
+    const [createDialogOpen, setCreateDialogOpen] = useState(false);
+    const [selectedRecipients, setSelectedRecipients] = useState<number[]>([]);
+
     const unreadCount = notifications.filter((n) => !n.read_at).length;
 
     const handleMarkAsRead = (notificationId: number) => {
@@ -74,10 +102,26 @@ export default function NotificationsIndex({ notifications }: NotificationsIndex
         return date.toLocaleDateString();
     };
 
+    const handleSelectEveryone = () => {
+        setSelectedRecipients(users.map((user) => user.id));
+    };
+
+    const handleRecipientToggle = (userId: number) => {
+        setSelectedRecipients((prev) =>
+            prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+        );
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Notifications" />
             <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
+                {success && (
+                    <div className="rounded-lg bg-green-50 p-4 text-sm text-green-800 dark:bg-green-900/20 dark:text-green-400">
+                        {success}
+                    </div>
+                )}
+
                 <Card>
                     <CardHeader>
                         <div className="flex items-center justify-between">
@@ -90,16 +134,156 @@ export default function NotificationsIndex({ notifications }: NotificationsIndex
                                     </Badge>
                                 )}
                             </div>
-                            {unreadCount > 0 && (
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={handleMarkAllAsRead}
-                                >
-                                    <CheckCheck className="size-4" />
-                                    Mark all as read
-                                </Button>
-                            )}
+                            <div className="flex items-center gap-2">
+                                {isAdmin && (
+                                    <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+                                        <DialogTrigger asChild>
+                                            <Button size="sm">
+                                                <Plus className="size-4" />
+                                                Create Notification
+                                            </Button>
+                                        </DialogTrigger>
+                                        <DialogContent className="max-h-[90vh] overflow-y-auto">
+                                            <DialogHeader>
+                                                <DialogTitle>Create New Notification</DialogTitle>
+                                                <DialogDescription>
+                                                    Send a notification to selected recipients. All fields are required.
+                                                </DialogDescription>
+                                            </DialogHeader>
+                                            <Form
+                                                action={store()}
+                                                resetOnSuccess
+                                                onSuccess={() => {
+                                                    setCreateDialogOpen(false);
+                                                    setSelectedRecipients([]);
+                                                }}
+                                                className="flex flex-col gap-4"
+                                            >
+                                                {({ processing, errors }) => (
+                                                    <>
+                                                        <div className="grid gap-4">
+                                                            <div className="grid gap-2">
+                                                                <Label htmlFor="title">Title</Label>
+                                                                <Input
+                                                                    id="title"
+                                                                    name="title"
+                                                                    required
+                                                                    placeholder="Notification title"
+                                                                />
+                                                                <InputError message={errors.title} />
+                                                            </div>
+
+                                                            <div className="grid gap-2">
+                                                                <Label htmlFor="message">Message</Label>
+                                                                <textarea
+                                                                    id="message"
+                                                                    name="message"
+                                                                    required
+                                                                    rows={4}
+                                                                    className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                                    placeholder="Notification message"
+                                                                />
+                                                                <InputError message={errors.message} />
+                                                            </div>
+
+                                                            <div className="grid gap-2">
+                                                                <Label htmlFor="type">Type</Label>
+                                                                <Input
+                                                                    id="type"
+                                                                    name="type"
+                                                                    required
+                                                                    placeholder="e.g., announcement, alert, info"
+                                                                />
+                                                                <InputError message={errors.type} />
+                                                            </div>
+
+                                                            <div className="grid gap-2">
+                                                                <div className="flex items-center justify-between">
+                                                                    <Label htmlFor="recipients">Recipients</Label>
+                                                                    {isAdmin && (
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="outline"
+                                                                            size="sm"
+                                                                            onClick={handleSelectEveryone}
+                                                                        >
+                                                                            Select Everyone
+                                                                        </Button>
+                                                                    )}
+                                                                </div>
+                                                                <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border p-3">
+                                                                    {users.length === 0 ? (
+                                                                        <p className="text-sm text-muted-foreground">
+                                                                            No users available
+                                                                        </p>
+                                                                    ) : (
+                                                                        users.map((user) => (
+                                                                            <div
+                                                                                key={user.id}
+                                                                                className="flex items-center space-x-2"
+                                                                            >
+                                                                                <Checkbox
+                                                                                    id={`recipient-${user.id}`}
+                                                                                    checked={selectedRecipients.includes(user.id)}
+                                                                                    onCheckedChange={() =>
+                                                                                        handleRecipientToggle(user.id)
+                                                                                    }
+                                                                                />
+                                                                                <Label
+                                                                                    htmlFor={`recipient-${user.id}`}
+                                                                                    className="flex-1 cursor-pointer text-sm font-normal"
+                                                                                >
+                                                                                    {user.name} ({user.email})
+                                                                                </Label>
+                                                                            </div>
+                                                                        ))
+                                                                    )}
+                                                                </div>
+                                                                {selectedRecipients.map((recipientId) => (
+                                                                    <input
+                                                                        key={recipientId}
+                                                                        type="hidden"
+                                                                        name="recipient_ids[]"
+                                                                        value={recipientId}
+                                                                    />
+                                                                ))}
+                                                                <InputError message={errors.recipient_ids} />
+                                                            </div>
+                                                        </div>
+
+                                                        <DialogFooter>
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                onClick={() => {
+                                                                    setCreateDialogOpen(false);
+                                                                    setSelectedRecipients([]);
+                                                                }}
+                                                            >
+                                                                Cancel
+                                                            </Button>
+                                                            <Button type="submit" disabled={processing || selectedRecipients.length === 0}>
+                                                                {processing && <Spinner />}
+                                                                Create Notification
+                                                            </Button>
+                                                        </DialogFooter>
+                                                    </>
+                                                )}
+                                            </Form>
+                                        </DialogContent>
+                                    </Dialog>
+                                )}
+                                {unreadCount > 0 && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleMarkAllAsRead}
+                                    >
+                                        <CheckCheck className="size-4" />
+                                        Mark all as read
+                                    </Button>
+                                )}
+                            </div>
                         </div>
                     </CardHeader>
                     <CardContent>
