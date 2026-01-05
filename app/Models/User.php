@@ -6,6 +6,7 @@ namespace App\Models;
 use App\UserRole;
 use App\UserStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
@@ -54,5 +55,29 @@ class User extends Authenticatable
             'role' => UserRole::class,
             'status' => UserStatus::class,
         ];
+    }
+
+    /**
+     * Get the notifications sent by this user.
+     */
+    public function sentNotifications(): HasMany
+    {
+        return $this->hasMany(Notification::class, 'sender_id');
+    }
+
+    /**
+     * Get the notifications received by this user.
+     */
+    public function receivedNotifications(): HasMany
+    {
+        return $this->hasMany(Notification::class, 'recipient_id');
+    }
+
+    /**
+     * Get the broadcast notifications (where recipient_id is null).
+     */
+    public function broadcastNotifications(): HasMany
+    {
+        return $this->hasMany(Notification::class, 'sender_id')->whereNull('recipient_id');
     }
 }
