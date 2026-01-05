@@ -13,9 +13,17 @@ use Inertia\Response;
 class UserController extends Controller
 {
     /**
-     * Display a listing of the users.
+     * Display the dashboard.
      */
     public function index(Request $request): Response
+    {
+        return Inertia::render('dashboard');
+    }
+
+    /**
+     * Display a listing of the users.
+     */
+    public function usersIndex(Request $request): Response
     {
         $users = User::query()
             ->latest()
@@ -29,7 +37,7 @@ class UserController extends Controller
                 'created_at' => $user->created_at->toDateTimeString(),
             ]);
 
-        return Inertia::render('dashboard', [
+        return Inertia::render('users/index', [
             'users' => $users,
         ]);
     }
@@ -41,7 +49,7 @@ class UserController extends Controller
     {
         User::create($request->validated());
 
-        return redirect()->route('dashboard')->with('success', 'User created successfully.');
+        return redirect()->route('users.index')->with('success', 'User created successfully.');
     }
 
     /**
@@ -57,7 +65,7 @@ class UserController extends Controller
 
         $user->update($data);
 
-        return redirect()->route('dashboard')->with('success', 'User updated successfully.');
+        return redirect()->route('users.index')->with('success', 'User updated successfully.');
     }
 
     /**
@@ -67,6 +75,6 @@ class UserController extends Controller
     {
         $user->delete();
 
-        return redirect()->route('dashboard')->with('success', 'User deleted successfully.');
+        return redirect()->route('users.index')->with('success', 'User deleted successfully.');
     }
 }
