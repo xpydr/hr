@@ -28,8 +28,8 @@ import { store, update, destroy } from '@/actions/App/Http/Controllers/ScheduleC
 import schedule from '@/routes/schedule/index';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Form, Head, router, usePage } from '@inertiajs/react';
-import { useState } from 'react';
-import { CalendarIcon, ListIcon, PencilIcon, PlusIcon, TrashIcon } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { ArrowUpDown, CalendarIcon, ListIcon, PencilIcon, PlusIcon, TrashIcon } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -79,6 +79,12 @@ export default function ScheduleIndex({ schedules, users, canManage, success }: 
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
     const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
+
+    // Employee list view filters and sorting
+    const [filterStatus, setFilterStatus] = useState<string>('all');
+    const [filterShiftType, setFilterShiftType] = useState<string>('all');
+    const [sortBy, setSortBy] = useState<'date' | 'start_time' | 'shift_type'>('date');
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
     const handleDelete = (schedule: Schedule) => {
         if (confirm(`Are you sure you want to delete this shift?`)) {
@@ -155,6 +161,56 @@ export default function ScheduleIndex({ schedules, users, canManage, success }: 
                   selectedDate.toISOString().split('T')[0],
           )
         : [];
+
+    // Filter and sort schedules for employee list view
+    const filteredAndSortedSchedules = useMemo(() => {
+        const today = new Date().toISOString().split('T')[0];
+        
+          const filtered = schedules.filter((schedule) => {
+            // Only show upcoming or today's schedules
+            if (schedule.date < today) {
+                return false;
+            }
+
+            // Filter by status
+            if (filterStatus !== 'all' && schedule.status !== filterStatus) {
+                return false;
+            }
+
+            // Filter by shift type
+            if (filterShiftType !== 'all' && schedule.shift_type !== filterShiftType) {
+                return false;
+            }
+
+            return true;
+        });
+
+        // Sort schedules
+        filtered.sort((a, b) => {
+            let comparison = 0;
+
+            switch (sortBy) {
+                case 'date':
+                    comparison = a.date.localeCompare(b.date);
+                    break;
+                case 'start_time':
+                    comparison = a.start_time.localeCompare(b.start_time);
+                    break;
+                case 'shift_type':
+                    comparison = a.shift_type.localeCompare(b.shift_type);
+                    break;
+            }
+
+            // If dates are equal and sorting by date, also sort by start_time
+            if (sortBy === 'date' && comparison === 0) {
+                comparison = a.start_time.localeCompare(b.start_time);
+            }
+
+            return sortDirection === 'asc' ? comparison : -comparison;
+        });
+
+        return filtered;
+    }, [schedules, filterStatus, filterShiftType, sortBy, sortDirection]);
 
     const renderCalendarView = () => {
         const schedulesByDate = getSchedulesByDate();
@@ -336,54 +392,230 @@ export default function ScheduleIndex({ schedules, users, canManage, success }: 
 
     const renderEmployeeCalendarView = () => {
         return (
-            <div className="flex flex-col gap-6 lg:flex-row">
-                <div className="flex flex-col items-center">
-                    <Calendar
-                        mode="single"
-                        selected={selectedDate}
-                        onSelect={setSelectedDate}
-                        modifiers={{
-                            scheduled: scheduledDates,
-                        }}
-                        modifiersClassNames={{
-                            scheduled: 'bg-primary/20 text-primary font-semibold',
-                        }}
-                        className="rounded-md border"
-                    />
-                    <p className="mt-4 text-sm text-muted-foreground">
-                        Days highlighted in blue indicate scheduled shifts
-                    </p>
+            <>
+                <div className="flex flex-col gap-6 lg:flex-row">
+                    <div className="flex flex-col items-center">
+                        <Calendar
+                            mode="single"
+                            selected={selectedDate}
+                            onSelect={setSelectedDate}
+                            modifiers={{
+                                scheduled: scheduledDates,
+                            }}
+                            modifiersClassNames={{
+                                scheduled: 'bg-primary/20 text-primary font-semibold',
+                            }}
+                            className="rounded-md border"
+                        />
+                        <p className="mt-4 text-sm text-muted-foreground">
+                            Days highlighted in blue indicate scheduled shifts
+                        </p>
+                    </div>
+
+                    <div className="flex-1">
+                        {selectedDate ? (
+                            <div>
+                                <h3 className="mb-4 text-lg font-semibold">
+                                    {formatDateLong(
+                                        selectedDate.toISOString().split('T')[0],
+                                    )}
+                                </h3>
+                                {selectedDateSchedules.length > 0 ? (
+                                    <div className="space-y-3">
+                                        {selectedDateSchedules.map((schedule) => (
+                                            <Card key={schedule.id}>
+                                                <CardContent className="pt-6">
+                                                    <div className="space-y-3">
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="text-lg font-medium">
+                                                                {formatTime(
+                                                                    schedule.start_time,
+                                                                )}{' '}
+                                                                -{' '}
+                                                                {formatTime(
+                                                                    schedule.end_time,
+                                                                )}
+                                                            </div>
+                                                            <div className="flex gap-2">
+                                                                <Badge variant="outline">
+                                                                    {
+                                                                        schedule.shift_type
+                                                                    }
+                                                                </Badge>
+                                                                <Badge
+                                                                    variant={getStatusBadgeVariant(
+                                                                        schedule.status,
+                                                                    )}
+                                                                >
+                                                                    {schedule.status}
+                                                                </Badge>
+                                                            </div>
+                                                        </div>
+
+                                                        {schedule.location && (
+                                                            <div className="text-sm text-muted-foreground">
+                                                                📍 {schedule.location}
+                                                            </div>
+                                                        )}
+
+                                                        {schedule.break_duration > 0 && (
+                                                            <div className="text-sm text-muted-foreground">
+                                                                Break:{' '}
+                                                                {
+                                                                    schedule.break_duration
+                                                                }{' '}
+                                                                minutes
+                                                            </div>
+                                                        )}
+
+                                                        {schedule.notes && (
+                                                            <div className="rounded-md bg-muted p-3 text-sm">
+                                                                {schedule.notes}
+                                                            </div>
+                                                        )}
+
+                                                        {schedule.is_recurring && (
+                                                            <div className="text-sm text-muted-foreground">
+                                                                🔄 Recurring:{' '}
+                                                                {
+                                                                    schedule.recurrence_pattern
+                                                                }
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+                                        No shifts scheduled for this day
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+                                Select a date to view your shifts
+                            </div>
+                        )}
+                    </div>
                 </div>
 
-                <div className="flex-1">
-                    {selectedDate ? (
-                        <div>
-                            <h3 className="mb-4 text-lg font-semibold">
-                                {formatDateLong(
-                                    selectedDate.toISOString().split('T')[0],
-                                )}
-                            </h3>
-                            {selectedDateSchedules.length > 0 ? (
+                {/* Upcoming Shifts List */}
+                <div className="mt-8">
+                    <Card>
+                        <CardHeader>
+                            <div className="flex items-center justify-between">
+                                <CardTitle>Upcoming Shifts</CardTitle>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            {/* Filters and Sorting */}
+                            <div className="mb-6 flex flex-wrap items-center gap-4">
+                                <div className="flex items-center gap-2">
+                                    <Label htmlFor="filter-status" className="text-sm">
+                                        Status:
+                                    </Label>
+                                    <Select
+                                        value={filterStatus}
+                                        onValueChange={setFilterStatus}
+                                    >
+                                        <SelectTrigger id="filter-status" className="w-[140px]">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All</SelectItem>
+                                            <SelectItem value="published">Published</SelectItem>
+                                            <SelectItem value="draft">Draft</SelectItem>
+                                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    <Label htmlFor="filter-shift-type" className="text-sm">
+                                        Shift Type:
+                                    </Label>
+                                    <Select
+                                        value={filterShiftType}
+                                        onValueChange={setFilterShiftType}
+                                    >
+                                        <SelectTrigger id="filter-shift-type" className="w-[140px]">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All</SelectItem>
+                                            <SelectItem value="morning">Morning</SelectItem>
+                                            <SelectItem value="afternoon">Afternoon</SelectItem>
+                                            <SelectItem value="night">Night</SelectItem>
+                                            <SelectItem value="full-day">Full Day</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    <Label htmlFor="sort-by" className="text-sm">
+                                        Sort By:
+                                    </Label>
+                                    <Select
+                                        value={sortBy}
+                                        onValueChange={(value) =>
+                                            setSortBy(
+                                                value as 'date' | 'start_time' | 'shift_type',
+                                            )
+                                        }
+                                    >
+                                        <SelectTrigger id="sort-by" className="w-[140px]">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="date">Date</SelectItem>
+                                            <SelectItem value="start_time">Start Time</SelectItem>
+                                            <SelectItem value="shift_type">Shift Type</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                        setSortDirection(
+                                            sortDirection === 'asc' ? 'desc' : 'asc',
+                                        )
+                                    }
+                                    className="flex items-center gap-2"
+                                >
+                                    <ArrowUpDown className="h-4 w-4" />
+                                    {sortDirection === 'asc' ? 'Ascending' : 'Descending'}
+                                </Button>
+                            </div>
+
+                            {/* Shifts List */}
+                            {filteredAndSortedSchedules.length > 0 ? (
                                 <div className="space-y-3">
-                                    {selectedDateSchedules.map((schedule) => (
+                                    {filteredAndSortedSchedules.map((schedule) => (
                                         <Card key={schedule.id}>
                                             <CardContent className="pt-6">
-                                                <div className="space-y-3">
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="text-lg font-medium">
-                                                            {formatTime(
-                                                                schedule.start_time,
-                                                            )}{' '}
-                                                            -{' '}
-                                                            {formatTime(
-                                                                schedule.end_time,
-                                                            )}
+                                                <div className="flex items-start justify-between gap-4">
+                                                    <div className="flex-1 space-y-2">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="font-medium">
+                                                                {formatDate(schedule.date)}
+                                                            </div>
+                                                            <div className="text-lg font-semibold">
+                                                                {formatTime(
+                                                                    schedule.start_time,
+                                                                )}{' '}
+                                                                -{' '}
+                                                                {formatTime(
+                                                                    schedule.end_time,
+                                                                )}
+                                                            </div>
                                                         </div>
-                                                        <div className="flex gap-2">
+                                                        <div className="flex flex-wrap items-center gap-2">
                                                             <Badge variant="outline">
-                                                                {
-                                                                    schedule.shift_type
-                                                                }
+                                                                {schedule.shift_type}
                                                             </Badge>
                                                             <Badge
                                                                 variant={getStatusBadgeVariant(
@@ -392,39 +624,29 @@ export default function ScheduleIndex({ schedules, users, canManage, success }: 
                                                             >
                                                                 {schedule.status}
                                                             </Badge>
+                                                            {schedule.is_recurring && (
+                                                                <Badge variant="secondary">
+                                                                    🔄 Recurring
+                                                                </Badge>
+                                                            )}
                                                         </div>
+                                                        {schedule.location && (
+                                                            <div className="text-sm text-muted-foreground">
+                                                                📍 {schedule.location}
+                                                            </div>
+                                                        )}
+                                                        {schedule.break_duration > 0 && (
+                                                            <div className="text-sm text-muted-foreground">
+                                                                Break: {schedule.break_duration}{' '}
+                                                                minutes
+                                                            </div>
+                                                        )}
+                                                        {schedule.notes && (
+                                                            <div className="rounded-md bg-muted p-3 text-sm">
+                                                                {schedule.notes}
+                                                            </div>
+                                                        )}
                                                     </div>
-
-                                                    {schedule.location && (
-                                                        <div className="text-sm text-muted-foreground">
-                                                            📍 {schedule.location}
-                                                        </div>
-                                                    )}
-
-                                                    {schedule.break_duration > 0 && (
-                                                        <div className="text-sm text-muted-foreground">
-                                                            Break:{' '}
-                                                            {
-                                                                schedule.break_duration
-                                                            }{' '}
-                                                            minutes
-                                                        </div>
-                                                    )}
-
-                                                    {schedule.notes && (
-                                                        <div className="rounded-md bg-muted p-3 text-sm">
-                                                            {schedule.notes}
-                                                        </div>
-                                                    )}
-
-                                                    {schedule.is_recurring && (
-                                                        <div className="text-sm text-muted-foreground">
-                                                            🔄 Recurring:{' '}
-                                                            {
-                                                                schedule.recurrence_pattern
-                                                            }
-                                                        </div>
-                                                    )}
                                                 </div>
                                             </CardContent>
                                         </Card>
@@ -432,17 +654,13 @@ export default function ScheduleIndex({ schedules, users, canManage, success }: 
                                 </div>
                             ) : (
                                 <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-                                    No shifts scheduled for this day
+                                    No upcoming shifts found matching your filters
                                 </div>
                             )}
-                        </div>
-                    ) : (
-                        <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-                            Select a date to view your shifts
-                        </div>
-                    )}
+                        </CardContent>
+                    </Card>
                 </div>
-            </div>
+            </>
         );
     };
 
