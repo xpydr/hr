@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\ScheduleController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -23,6 +24,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('notifications', [NotificationController::class, 'store'])->name('notifications.store');
     Route::post('notifications/{notification}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
     Route::post('notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
+
+    Route::get('schedule', [ScheduleController::class, 'index'])->name('schedule.index');
+    Route::post('schedule', [ScheduleController::class, 'store'])->name('schedule.store');
+    Route::patch('schedule/{schedule}', [ScheduleController::class, 'update'])->name('schedule.update');
+    Route::delete('schedule/{schedule}', [ScheduleController::class, 'destroy'])->name('schedule.destroy');
 });
 
 require __DIR__.'/settings.php';

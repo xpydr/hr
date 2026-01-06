@@ -12,10 +12,11 @@ import {
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
 import notifications from '@/routes/notifications';
+import schedule from '@/routes/schedule/index';
 import users from '@/routes/users';
 import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { Bell, BookOpen, Folder, LayoutGrid, Users } from 'lucide-react';
+import { Bell, BookOpen, Calendar, Folder, LayoutGrid, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 export function AppSidebar() {
@@ -31,6 +32,11 @@ export function AppSidebar() {
             title: 'Users',
             href: users.index(),
             icon: Users,
+        },
+        {
+            title: 'Schedule',
+            href: schedule.index(),
+            icon: Calendar,
         },
         {
             title: 'Notifications',
