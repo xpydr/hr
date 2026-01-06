@@ -23,16 +23,16 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import AppLayout from '@/layouts/app-layout';
 import { store, update, destroy } from '@/actions/App/Http/Controllers/UserController';
-import users from '@/routes/users';
+import userRoutes from '@/routes/users';
 import { type BreadcrumbItem } from '@/types';
 import { Form, Head, router } from '@inertiajs/react';
-import { useState } from 'react';
-import { PencilIcon, PlusIcon, TrashIcon } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { PencilIcon, PlusIcon, SearchIcon, TrashIcon } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Users',
-        href: users.index().url,
+        href: userRoutes.index().url,
     },
 ];
 
@@ -48,11 +48,13 @@ interface User {
 interface UsersIndexProps {
     users: User[];
     success?: string;
+    search?: string;
 }
 
-export default function UsersIndex({ users, success }: UsersIndexProps) {
+export default function UsersIndex({ users, success, search = '' }: UsersIndexProps) {
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
+    const [searchTerm, setSearchTerm] = useState(search);
 
     const handleDelete = (user: User) => {
         if (confirm(`Are you sure you want to delete ${user.name}?`)) {
@@ -86,6 +88,22 @@ export default function UsersIndex({ users, success }: UsersIndexProps) {
         }
     };
 
+    useEffect(() => {
+        const timeoutId = setTimeout(() => {
+            router.get(
+                userRoutes.index().url,
+                { search: searchTerm || undefined },
+                {
+                    preserveState: true,
+                    preserveScroll: true,
+                    replace: true,
+                }
+            );
+        }, 300);
+
+        return () => clearTimeout(timeoutId);
+    }, [searchTerm]);
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Users" />
@@ -98,9 +116,10 @@ export default function UsersIndex({ users, success }: UsersIndexProps) {
 
                 <Card>
                     <CardHeader>
-                        <div className="flex items-center justify-between">
-                            <CardTitle>Users</CardTitle>
-                            <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+                        <div className="flex flex-col gap-4">
+                            <div className="flex items-center justify-between">
+                                <CardTitle>Users</CardTitle>
+                                <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
                                 <DialogTrigger asChild>
                                     <Button>
                                         <PlusIcon />
@@ -224,6 +243,17 @@ export default function UsersIndex({ users, success }: UsersIndexProps) {
                                     </Form>
                                 </DialogContent>
                             </Dialog>
+                            </div>
+                            <div className="relative">
+                                <SearchIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    type="text"
+                                    placeholder="Search users by name..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="pl-9"
+                                />
+                            </div>
                         </div>
                     </CardHeader>
                     <CardContent>
@@ -243,7 +273,9 @@ export default function UsersIndex({ users, success }: UsersIndexProps) {
                                     {users.length === 0 ? (
                                         <tr>
                                             <td colSpan={6} className="px-4 py-8 text-center text-sm text-muted-foreground">
-                                                No users found. Create your first user to get started.
+                                                {searchTerm
+                                                    ? `No users found matching "${searchTerm}".`
+                                                    : 'No users found. Create your first user to get started.'}
                                             </td>
                                         </tr>
                                     ) : (

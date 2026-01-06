@@ -25,7 +25,13 @@ class UserController extends Controller
      */
     public function usersIndex(Request $request): Response
     {
-        $users = User::query()
+        $query = User::query();
+
+        if ($request->filled('search')) {
+            $query->where('name', 'like', '%'.$request->input('search').'%');
+        }
+
+        $users = $query
             ->latest()
             ->get()
             ->map(fn (User $user) => [
@@ -39,6 +45,7 @@ class UserController extends Controller
 
         return Inertia::render('users/index', [
             'users' => $users,
+            'search' => $request->input('search', ''),
         ]);
     }
 
