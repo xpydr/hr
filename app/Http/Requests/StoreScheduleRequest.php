@@ -26,6 +26,7 @@ class StoreScheduleRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'user_id' => ['nullable', 'exists:users,id'],
             'date' => ['required', 'date'],
             'start_time' => ['required', 'string'],
             'end_time' => ['required', 'string'],

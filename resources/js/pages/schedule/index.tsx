@@ -1,6 +1,7 @@
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     Dialog,
@@ -37,8 +38,16 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
+interface User {
+    id: number;
+    name: string;
+    email: string;
+}
+
 interface Schedule {
     id: number;
+    user_id: number | null;
+    user: User | null;
     date: string;
     start_time: string;
     end_time: string;
@@ -54,14 +63,20 @@ interface Schedule {
 
 interface ScheduleIndexProps {
     schedules: Schedule[];
+    users: User[];
     canManage: boolean;
     success?: string;
 }
 
 type ViewMode = 'calendar' | 'list';
 
-export default function ScheduleIndex({ schedules, canManage, success }: ScheduleIndexProps) {
+export default function ScheduleIndex({ schedules, users, canManage, success }: ScheduleIndexProps) {
+    const page = usePage<SharedData>();
+    const userRole = page.props.auth.user?.role;
+    const isEmployee = userRole === 'employee';
+
     const [viewMode, setViewMode] = useState<ViewMode>('calendar');
+    const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
     const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
 
@@ -104,6 +119,16 @@ export default function ScheduleIndex({ schedules, canManage, success }: Schedul
         });
     };
 
+    const formatDateLong = (dateString: string): string => {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        });
+    };
+
     const getSchedulesByDate = () => {
         const grouped: Record<string, Schedule[]> = {};
         schedules.forEach((schedule) => {
@@ -114,6 +139,22 @@ export default function ScheduleIndex({ schedules, canManage, success }: Schedul
         });
         return grouped;
     };
+
+    // Get all dates that have schedules (for calendar highlighting)
+    const scheduledDates = schedules.map((schedule) => {
+        const date = new Date(schedule.date);
+        date.setHours(0, 0, 0, 0);
+        return date;
+    });
+
+    // Get schedules for the selected date (for employee calendar view)
+    const selectedDateSchedules = selectedDate
+        ? schedules.filter(
+              (schedule) =>
+                  schedule.date ===
+                  selectedDate.toISOString().split('T')[0],
+          )
+        : [];
 
     const renderCalendarView = () => {
         const schedulesByDate = getSchedulesByDate();
@@ -153,6 +194,11 @@ export default function ScheduleIndex({ schedules, canManage, success }: Schedul
                                                         {formatTime(schedule.start_time)} -{' '}
                                                         {formatTime(schedule.end_time)}
                                                     </div>
+                                                    {schedule.user && (
+                                                        <div className="text-sm text-muted-foreground">
+                                                            👤 {schedule.user.name}
+                                                        </div>
+                                                    )}
                                                     <div className="flex flex-wrap gap-2">
                                                         <Badge variant="outline">
                                                             {schedule.shift_type}
@@ -229,6 +275,7 @@ export default function ScheduleIndex({ schedules, canManage, success }: Schedul
                         <tr className="border-b">
                             <th className="px-4 py-3 text-left text-sm font-medium">Date</th>
                             <th className="px-4 py-3 text-left text-sm font-medium">Time</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium">Employee</th>
                             <th className="px-4 py-3 text-left text-sm font-medium">Shift Type</th>
                             <th className="px-4 py-3 text-left text-sm font-medium">Location</th>
                             <th className="px-4 py-3 text-left text-sm font-medium">Status</th>
@@ -244,6 +291,9 @@ export default function ScheduleIndex({ schedules, canManage, success }: Schedul
                                 <td className="px-4 py-3 text-sm">
                                     {formatTime(schedule.start_time)} -{' '}
                                     {formatTime(schedule.end_time)}
+                                </td>
+                                <td className="px-4 py-3 text-sm">
+                                    {schedule.user ? schedule.user.name : '-'}
                                 </td>
                                 <td className="px-4 py-3 text-sm">
                                     <Badge variant="outline">{schedule.shift_type}</Badge>
@@ -284,6 +334,118 @@ export default function ScheduleIndex({ schedules, canManage, success }: Schedul
         );
     };
 
+    const renderEmployeeCalendarView = () => {
+        return (
+            <div className="flex flex-col gap-6 lg:flex-row">
+                <div className="flex flex-col items-center">
+                    <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={setSelectedDate}
+                        modifiers={{
+                            scheduled: scheduledDates,
+                        }}
+                        modifiersClassNames={{
+                            scheduled: 'bg-primary/20 text-primary font-semibold',
+                        }}
+                        className="rounded-md border"
+                    />
+                    <p className="mt-4 text-sm text-muted-foreground">
+                        Days highlighted in blue indicate scheduled shifts
+                    </p>
+                </div>
+
+                <div className="flex-1">
+                    {selectedDate ? (
+                        <div>
+                            <h3 className="mb-4 text-lg font-semibold">
+                                {formatDateLong(
+                                    selectedDate.toISOString().split('T')[0],
+                                )}
+                            </h3>
+                            {selectedDateSchedules.length > 0 ? (
+                                <div className="space-y-3">
+                                    {selectedDateSchedules.map((schedule) => (
+                                        <Card key={schedule.id}>
+                                            <CardContent className="pt-6">
+                                                <div className="space-y-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="text-lg font-medium">
+                                                            {formatTime(
+                                                                schedule.start_time,
+                                                            )}{' '}
+                                                            -{' '}
+                                                            {formatTime(
+                                                                schedule.end_time,
+                                                            )}
+                                                        </div>
+                                                        <div className="flex gap-2">
+                                                            <Badge variant="outline">
+                                                                {
+                                                                    schedule.shift_type
+                                                                }
+                                                            </Badge>
+                                                            <Badge
+                                                                variant={getStatusBadgeVariant(
+                                                                    schedule.status,
+                                                                )}
+                                                            >
+                                                                {schedule.status}
+                                                            </Badge>
+                                                        </div>
+                                                    </div>
+
+                                                    {schedule.location && (
+                                                        <div className="text-sm text-muted-foreground">
+                                                            📍 {schedule.location}
+                                                        </div>
+                                                    )}
+
+                                                    {schedule.break_duration > 0 && (
+                                                        <div className="text-sm text-muted-foreground">
+                                                            Break:{' '}
+                                                            {
+                                                                schedule.break_duration
+                                                            }{' '}
+                                                            minutes
+                                                        </div>
+                                                    )}
+
+                                                    {schedule.notes && (
+                                                        <div className="rounded-md bg-muted p-3 text-sm">
+                                                            {schedule.notes}
+                                                        </div>
+                                                    )}
+
+                                                    {schedule.is_recurring && (
+                                                        <div className="text-sm text-muted-foreground">
+                                                            🔄 Recurring:{' '}
+                                                            {
+                                                                schedule.recurrence_pattern
+                                                            }
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+                                    No shifts scheduled for this day
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+                            Select a date to view your shifts
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Schedule" />
@@ -299,22 +461,24 @@ export default function ScheduleIndex({ schedules, canManage, success }: Schedul
                         <div className="flex items-center justify-between">
                             <CardTitle>Schedule</CardTitle>
                             <div className="flex items-center gap-4">
-                                <ToggleGroup
-                                    type="single"
-                                    value={viewMode}
-                                    onValueChange={(value) => {
-                                        if (value) {
-                                            setViewMode(value as ViewMode);
-                                        }
-                                    }}
-                                >
-                                    <ToggleGroupItem value="calendar" aria-label="Calendar view">
-                                        <CalendarIcon className="h-4 w-4" />
-                                    </ToggleGroupItem>
-                                    <ToggleGroupItem value="list" aria-label="List view">
-                                        <ListIcon className="h-4 w-4" />
-                                    </ToggleGroupItem>
-                                </ToggleGroup>
+                                {!isEmployee && (
+                                    <ToggleGroup
+                                        type="single"
+                                        value={viewMode}
+                                        onValueChange={(value) => {
+                                            if (value) {
+                                                setViewMode(value as ViewMode);
+                                            }
+                                        }}
+                                    >
+                                        <ToggleGroupItem value="calendar" aria-label="Calendar view">
+                                            <CalendarIcon className="h-4 w-4" />
+                                        </ToggleGroupItem>
+                                        <ToggleGroupItem value="list" aria-label="List view">
+                                            <ListIcon className="h-4 w-4" />
+                                        </ToggleGroupItem>
+                                    </ToggleGroup>
+                                )}
                                 {canManage && (
                                     <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
                                         <DialogTrigger asChild>
@@ -340,6 +504,45 @@ export default function ScheduleIndex({ schedules, canManage, success }: Schedul
                                                 {({ processing, errors }) => (
                                                     <>
                                                         <div className="grid gap-4">
+                                                            <div className="grid gap-2">
+                                                                <Label htmlFor="user_id">
+                                                                    Employee (Optional)
+                                                                </Label>
+                                                                <Select
+                                                                    onValueChange={(value) => {
+                                                                        const input =
+                                                                            document.querySelector<HTMLInputElement>(
+                                                                                'input[name="user_id"]',
+                                                                            );
+                                                                        if (input) {
+                                                                            input.value = value === 'none' ? '' : value;
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    <SelectTrigger id="user_id">
+                                                                        <SelectValue placeholder="Select an employee" />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        <SelectItem value="none">
+                                                                            None
+                                                                        </SelectItem>
+                                                                        {users.map((user) => (
+                                                                            <SelectItem
+                                                                                key={user.id}
+                                                                                value={user.id.toString()}
+                                                                            >
+                                                                                {user.name} ({user.email})
+                                                                            </SelectItem>
+                                                                        ))}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                                <input
+                                                                    type="hidden"
+                                                                    name="user_id"
+                                                                />
+                                                                <InputError message={errors.user_id} />
+                                                            </div>
+
                                                             <div className="grid gap-2">
                                                                 <Label htmlFor="date">Date</Label>
                                                                 <Input
@@ -566,7 +769,11 @@ export default function ScheduleIndex({ schedules, canManage, success }: Schedul
                         </div>
                     </CardHeader>
                     <CardContent>
-                        {viewMode === 'calendar' ? renderCalendarView() : renderListView()}
+                        {isEmployee
+                            ? renderEmployeeCalendarView()
+                            : viewMode === 'calendar'
+                              ? renderCalendarView()
+                              : renderListView()}
                     </CardContent>
                 </Card>
 
@@ -591,6 +798,58 @@ export default function ScheduleIndex({ schedules, canManage, success }: Schedul
                                 {({ processing, errors }) => (
                                     <>
                                         <div className="grid gap-4">
+                                            <div className="grid gap-2">
+                                                <Label
+                                                    htmlFor={`edit-user_id-${editingSchedule.id}`}
+                                                >
+                                                    Employee (Optional)
+                                                </Label>
+                                                <Select
+                                                    defaultValue={
+                                                        editingSchedule.user_id
+                                                            ? editingSchedule.user_id.toString()
+                                                            : 'none'
+                                                    }
+                                                    onValueChange={(value) => {
+                                                        const input =
+                                                            document.querySelector<HTMLInputElement>(
+                                                                `input[name="user_id"][data-schedule-id="${editingSchedule.id}"]`,
+                                                            );
+                                                        if (input) {
+                                                            input.value = value === 'none' ? '' : value;
+                                                        }
+                                                    }}
+                                                >
+                                                    <SelectTrigger
+                                                        id={`edit-user_id-${editingSchedule.id}`}
+                                                    >
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="none">None</SelectItem>
+                                                        {users.map((user) => (
+                                                            <SelectItem
+                                                                key={user.id}
+                                                                value={user.id.toString()}
+                                                            >
+                                                                {user.name} ({user.email})
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <input
+                                                    type="hidden"
+                                                    name="user_id"
+                                                    data-schedule-id={editingSchedule.id}
+                                                    defaultValue={
+                                                        editingSchedule.user_id
+                                                            ? editingSchedule.user_id.toString()
+                                                            : ''
+                                                    }
+                                                />
+                                                <InputError message={errors.user_id} />
+                                            </div>
+
                                             <div className="grid gap-2">
                                                 <Label htmlFor={`edit-date-${editingSchedule.id}`}>
                                                     Date

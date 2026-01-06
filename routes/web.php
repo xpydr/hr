@@ -26,6 +26,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
 
     Route::get('schedule', [ScheduleController::class, 'index'])->name('schedule.index');
+    Route::get('my-schedule', [ScheduleController::class, 'mySchedule'])->name('schedule.my-schedule');
     Route::post('schedule', [ScheduleController::class, 'store'])->name('schedule.store');
     Route::patch('schedule/{schedule}', [ScheduleController::class, 'update'])->name('schedule.update');
     Route::delete('schedule/{schedule}', [ScheduleController::class, 'destroy'])->name('schedule.destroy');

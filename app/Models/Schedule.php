@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Schedule extends Model
 {
@@ -16,6 +17,7 @@ class Schedule extends Model
      * @var list<string>
      */
     protected $fillable = [
+        'user_id',
         'date',
         'start_time',
         'end_time',
@@ -27,6 +29,14 @@ class Schedule extends Model
         'is_recurring',
         'recurrence_pattern',
     ];
+
+    /**
+     * Get the user that owns the schedule.
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
 
     /**
      * Get the attributes that should be cast.

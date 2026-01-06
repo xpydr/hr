@@ -252,3 +252,82 @@ test('schedules are ordered by date and start time', function () {
             ->where('schedules.2.start_time', '14:00:00')
         );
 });
+
+test('employee can view their own schedule', function () {
+    $employee = User::factory()->create(['role' => UserRole::Employee]);
+    $otherEmployee = User::factory()->create(['role' => UserRole::Employee]);
+
+    Schedule::factory()->create([
+        'user_id' => $employee->id,
+        'date' => '2024-01-15',
+        'start_time' => '09:00:00',
+        'end_time' => '17:00:00',
+        'shift_type' => 'full-day',
+    ]);
+
+    Schedule::factory()->create([
+        'user_id' => $employee->id,
+        'date' => '2024-01-20',
+        'start_time' => '10:00:00',
+        'end_time' => '18:00:00',
+        'shift_type' => 'morning',
+    ]);
+
+    Schedule::factory()->create([
+        'user_id' => $otherEmployee->id,
+        'date' => '2024-01-15',
+        'start_time' => '08:00:00',
+        'end_time' => '16:00:00',
+        'shift_type' => 'afternoon',
+    ]);
+
+    $this->actingAs($employee)
+        ->get(route('schedule.my-schedule'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('schedule/my-schedule')
+            ->has('schedules', 2)
+            ->where('schedules.0.date', '2024-01-15')
+            ->where('schedules.0.start_time', '09:00:00')
+            ->where('schedules.1.date', '2024-01-20')
+            ->where('schedules.1.start_time', '10:00:00')
+        );
+});
+
+test('all authenticated users can view their own schedule', function () {
+    $admin = User::factory()->create(['role' => UserRole::Admin]);
+    $hr = User::factory()->create(['role' => UserRole::Hr]);
+    $employee = User::factory()->create(['role' => UserRole::Employee]);
+
+    Schedule::factory()->create(['user_id' => $admin->id]);
+    Schedule::factory()->create(['user_id' => $hr->id]);
+    Schedule::factory()->create(['user_id' => $employee->id]);
+
+    $this->actingAs($admin)
+        ->get(route('schedule.my-schedule'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('schedule/my-schedule')
+            ->has('schedules', 1)
+        );
+
+    $this->actingAs($hr)
+        ->get(route('schedule.my-schedule'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('schedule/my-schedule')
+            ->has('schedules', 1)
+        );
+
+    $this->actingAs($employee)
+        ->get(route('schedule.my-schedule'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('schedule/my-schedule')
+            ->has('schedules', 1)
+        );
+});
+
+test('guests cannot access my schedule', function () {
+    $this->get(route('schedule.my-schedule'))->assertRedirect(route('login'));
+});
