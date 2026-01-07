@@ -6,6 +6,7 @@ namespace App\Models;
 use App\UserRole;
 use App\UserStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -28,6 +29,7 @@ class User extends Authenticatable
         'password',
         'role',
         'status',
+        'team_id',
     ];
 
     /**
@@ -98,5 +100,13 @@ class User extends Authenticatable
     public function teamInvitations(): HasMany
     {
         return $this->hasMany(TeamInvitation::class, 'created_by');
+    }
+
+    /**
+     * Get the primary team for this user.
+     */
+    public function team(): BelongsTo
+    {
+        return $this->belongsTo(Team::class);
     }
 }

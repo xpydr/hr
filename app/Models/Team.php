@@ -69,6 +69,22 @@ class Team extends Model
     }
 
     /**
+     * Get the users that belong to this team (via primary team_id).
+     */
+    public function primaryUsers(): HasMany
+    {
+        return $this->hasMany(User::class);
+    }
+
+    /**
+     * Get the schedules for this team.
+     */
+    public function schedules(): HasMany
+    {
+        return $this->hasMany(Schedule::class);
+    }
+
+    /**
      * Get the picture URL attribute.
      */
     public function getPictureUrlAttribute(): ?string

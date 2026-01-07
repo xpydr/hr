@@ -18,6 +18,7 @@ class Schedule extends Model
      */
     protected $fillable = [
         'user_id',
+        'team_id',
         'date',
         'start_time',
         'end_time',
@@ -36,6 +37,14 @@ class Schedule extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the team that owns the schedule.
+     */
+    public function team(): BelongsTo
+    {
+        return $this->belongsTo(Team::class);
     }
 
     /**
