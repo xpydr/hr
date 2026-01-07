@@ -9,6 +9,11 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { dashboard } from '@/routes';
 import notifications from '@/routes/notifications';
 import schedule from '@/routes/schedule/index';
@@ -17,6 +22,7 @@ import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import { Bell, Calendar, LayoutGrid, Users } from 'lucide-react';
 import AppLogo from './app-logo';
+import { TeamSwitcherContent } from './team-switcher';
 
 export function AppSidebar() {
     const { unreadNotificationCount = 0 } = usePage<SharedData>().props;
@@ -50,11 +56,21 @@ export function AppSidebar() {
             <SidebarHeader>
                 <SidebarMenu>
                     <SidebarMenuItem>
-                        <SidebarMenuButton size="lg" asChild>
-                            <Link href={dashboard()} prefetch>
-                                <AppLogo />
-                            </Link>
-                        </SidebarMenuButton>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <SidebarMenuButton size="lg" className="w-full">
+                                    <AppLogo />
+                                </SidebarMenuButton>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                                className="w-[var(--radix-dropdown-menu-trigger-width)]"
+                                align="start"
+                                side="right"
+                                sideOffset={4}
+                            >
+                                <TeamSwitcherContent />
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </SidebarMenuItem>
                 </SidebarMenu>
             </SidebarHeader>

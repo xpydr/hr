@@ -153,4 +153,91 @@ class TeamController extends Controller
 
         return redirect()->route('teams.index')->with('success', 'Team deleted successfully.');
     }
+
+    /**
+     * Browse teams that the user can join.
+     */
+    public function browse(Request $request): Response
+    {
+        $user = $request->user();
+        $userTeamIds = $user->teams()->pluck('teams.id');
+
+        $query = Team::with('creator')
+            ->whereNotIn('id', $userTeamIds);
+
+        if ($request->filled('search')) {
+            $query->where('name', 'like', '%'.$request->input('search').'%');
+        }
+
+        $teams = $query
+            ->latest()
+            ->get()
+            ->map(fn (Team $team) => [
+                'id' => $team->id,
+                'name' => $team->name,
+                'description' => $team->description,
+                'address' => $team->address,
+                'phone' => $team->phone,
+                'website' => $team->website,
+                'picture' => $team->picture_url,
+                'created_by' => $team->creator?->name,
+                'member_count' => $team->members()->count(),
+                'created_at' => $team->created_at->toDateTimeString(),
+            ]);
+
+        return Inertia::render('teams/browse', [
+            'teams' => $teams,
+            'search' => $request->input('search', ''),
+        ]);
+    }
+
+    /**
+     * Switch the current team.
+     */
+    public function switch(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+        $teamId = $request->input('team_id');
+
+        // If team_id is null, clear current team
+        if ($teamId === null) {
+            $request->session()->forget('current_team_id');
+
+            return redirect()->back()->with('success', 'Switched to no team.');
+        }
+
+        // Verify user belongs to the team
+        $team = $user->teams()->find($teamId);
+
+        if (! $team) {
+            return redirect()->back()->with('error', 'You are not a member of this team.');
+        }
+
+        $request->session()->put('current_team_id', $teamId);
+
+        return redirect()->back()->with('success', "Switched to {$team->name}.");
+    }
+
+    /**
+     * Join a team.
+     */
+    public function join(Request $request, Team $team): RedirectResponse
+    {
+        $user = $request->user();
+
+        // Check if user is already a member
+        if ($user->teams()->where('teams.id', $team->id)->exists()) {
+            return redirect()->back()->with('error', 'You are already a member of this team.');
+        }
+
+        // Add user to team
+        $team->members()->attach($user->id, [
+            'joined_at' => now(),
+        ]);
+
+        // Optionally switch to the newly joined team
+        $request->session()->put('current_team_id', $team->id);
+
+        return redirect()->back()->with('success', "You have successfully joined {$team->name}.");
+    }
 }
