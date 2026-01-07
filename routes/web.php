@@ -19,6 +19,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [UserController::class, 'index'])->name('dashboard');
     Route::get('users', [UserController::class, 'usersIndex'])->name('users.index');
     Route::post('users', [UserController::class, 'store'])->name('users.store');
+    Route::post('users/send-magic-link-invite', [UserController::class, 'sendMagicLinkInvite'])->name('users.send-magic-link-invite');
     Route::patch('users/{user}', [UserController::class, 'update'])->name('users.update');
     Route::delete('users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
 

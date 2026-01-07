@@ -8,4 +8,5 @@ enum UserStatus: string
     case Inactive = 'inactive';
     case Suspended = 'suspended';
     case Terminated = 'terminated';
+    case Pending = 'pending';
 }

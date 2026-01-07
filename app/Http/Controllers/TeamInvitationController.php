@@ -7,6 +7,7 @@ use App\Http\Requests\StoreTeamInvitationRequest;
 use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Models\User;
+use App\UserStatus;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -108,6 +109,11 @@ class TeamInvitationController extends Controller
                 'password' => bcrypt(str()->random(32)), // Random password, user can reset
             ]
         );
+
+        // Update user status from pending to active if it was pending
+        if ($user->status === UserStatus::Pending) {
+            $user->update(['status' => UserStatus::Active]);
+        }
 
         // Attach user to team if not already attached
         if (! $user->teams->contains($invitation->team)) {
