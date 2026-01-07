@@ -19,7 +19,7 @@ import notifications from '@/routes/notifications';
 import schedule from '@/routes/schedule/index';
 import users from '@/routes/users';
 import { type NavItem, type SharedData } from '@/types';
-import { Link, usePage } from '@inertiajs/react';
+import { usePage } from '@inertiajs/react';
 import { Bell, Calendar, LayoutGrid, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 import { TeamSwitcherContent } from './team-switcher';
