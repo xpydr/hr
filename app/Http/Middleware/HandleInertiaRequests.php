@@ -45,6 +45,31 @@ class HandleInertiaRequests extends Middleware
 
         $user = $request->user();
 
+        $teams = [];
+        $currentTeam = null;
+
+        if ($user) {
+            $teams = $user->teams()
+                ->get()
+                ->map(fn ($team) => [
+                    'id' => $team->id,
+                    'name' => $team->name,
+                    'picture' => $team->picture_url,
+                ])
+                ->toArray();
+
+            // Get current team from session or use first team
+            $currentTeamId = $request->session()->get('current_team_id');
+            if ($currentTeamId) {
+                $currentTeam = collect($teams)->firstWhere('id', $currentTeamId);
+            }
+
+            // If no current team selected, use first team
+            if (! $currentTeam && count($teams) > 0) {
+                $currentTeam = $teams[0];
+            }
+        }
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
@@ -59,6 +84,8 @@ class HandleInertiaRequests extends Middleware
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'unreadNotificationCount' => $unreadNotificationCount,
+            'teams' => $teams,
+            'currentTeam' => $currentTeam,
         ];
     }
 }

@@ -6,6 +6,7 @@ namespace App\Models;
 use App\UserRole;
 use App\UserStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -79,5 +80,23 @@ class User extends Authenticatable
     public function broadcastNotifications(): HasMany
     {
         return $this->hasMany(Notification::class, 'sender_id')->whereNull('recipient_id');
+    }
+
+    /**
+     * Get the teams that the user belongs to.
+     */
+    public function teams(): BelongsToMany
+    {
+        return $this->belongsToMany(Team::class, 'team_user')
+            ->withPivot('joined_at')
+            ->withTimestamps();
+    }
+
+    /**
+     * Get the team invitations created by this user.
+     */
+    public function teamInvitations(): HasMany
+    {
+        return $this->hasMany(TeamInvitation::class, 'created_by');
     }
 }
