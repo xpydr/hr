@@ -6,7 +6,7 @@ import schedule from '@/routes/schedule/index';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import { useState } from 'react';
-import { Calendar as CalendarIcon } from 'lucide-react';
+import { Calendar as CalendarIcon, MapPin, Repeat } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -155,8 +155,9 @@ export default function MySchedule({ schedules }: MyScheduleProps) {
                                                                 </div>
 
                                                                 {schedule.location && (
-                                                                    <div className="text-sm text-muted-foreground">
-                                                                        📍 {schedule.location}
+                                                                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                                                                        <MapPin className="h-4 w-4" />
+                                                                        {schedule.location}
                                                                     </div>
                                                                 )}
 
@@ -177,8 +178,9 @@ export default function MySchedule({ schedules }: MyScheduleProps) {
                                                                 )}
 
                                                                 {schedule.is_recurring && (
-                                                                    <div className="text-sm text-muted-foreground">
-                                                                        🔄 Recurring:{' '}
+                                                                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                                                                        <Repeat className="h-4 w-4" />
+                                                                        Recurring:{' '}
                                                                         {
                                                                             schedule.recurrence_pattern
                                                                         }

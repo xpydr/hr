@@ -29,7 +29,7 @@ import schedule from '@/routes/schedule/index';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Form, Head, router, usePage } from '@inertiajs/react';
 import { useState, useMemo } from 'react';
-import { ArrowUpDown, CalendarIcon, ListIcon, PencilIcon, PlusIcon, TrashIcon } from 'lucide-react';
+import { ArrowUpDown, CalendarIcon, ListIcon, MapPin, PencilIcon, PlusIcon, Repeat, TrashIcon, User } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -257,8 +257,9 @@ export default function ScheduleIndex({ schedules, users, canManage, success }: 
                                                         {formatTime(schedule.end_time)}
                                                     </div>
                                                     {schedule.user && (
-                                                        <div className="text-sm text-muted-foreground">
-                                                            👤 {schedule.user.name}
+                                                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                                                            <User className="h-4 w-4" />
+                                                            {schedule.user.name}
                                                         </div>
                                                     )}
                                                     <div className="flex flex-wrap gap-2">
@@ -274,8 +275,9 @@ export default function ScheduleIndex({ schedules, users, canManage, success }: 
                                                         </Badge>
                                                     </div>
                                                     {schedule.location && (
-                                                        <div className="text-muted-foreground">
-                                                            📍 {schedule.location}
+                                                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                                                            <MapPin className="h-4 w-4" />
+                                                            {schedule.location}
                                                         </div>
                                                     )}
                                                     {schedule.notes && (
@@ -284,8 +286,9 @@ export default function ScheduleIndex({ schedules, users, canManage, success }: 
                                                         </div>
                                                     )}
                                                     {schedule.is_recurring && (
-                                                        <div className="text-muted-foreground">
-                                                            🔄 Recurring: {schedule.recurrence_pattern}
+                                                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                                                            <Repeat className="h-4 w-4" />
+                                                            Recurring: {schedule.recurrence_pattern}
                                                         </div>
                                                     )}
                                                 </div>
@@ -462,8 +465,9 @@ export default function ScheduleIndex({ schedules, users, canManage, success }: 
                                                         </div>
 
                                                         {schedule.location && (
-                                                            <div className="text-sm text-muted-foreground">
-                                                                📍 {schedule.location}
+                                                            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                                                                <MapPin className="h-4 w-4" />
+                                                                {schedule.location}
                                                             </div>
                                                         )}
 
@@ -484,8 +488,9 @@ export default function ScheduleIndex({ schedules, users, canManage, success }: 
                                                         )}
 
                                                         {schedule.is_recurring && (
-                                                            <div className="text-sm text-muted-foreground">
-                                                                🔄 Recurring:{' '}
+                                                            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                                                                <Repeat className="h-4 w-4" />
+                                                                Recurring:{' '}
                                                                 {
                                                                     schedule.recurrence_pattern
                                                                 }
@@ -634,14 +639,16 @@ export default function ScheduleIndex({ schedules, users, canManage, success }: 
                                                                 {schedule.status}
                                                             </Badge>
                                                             {schedule.is_recurring && (
-                                                                <Badge variant="secondary">
-                                                                    🔄 Recurring
+                                                                <Badge variant="secondary" className="flex items-center gap-1.5">
+                                                                    <Repeat className="h-3 w-3" />
+                                                                    Recurring
                                                                 </Badge>
                                                             )}
                                                         </div>
                                                         {schedule.location && (
-                                                            <div className="text-sm text-muted-foreground">
-                                                                📍 {schedule.location}
+                                                            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                                                                <MapPin className="h-4 w-4" />
+                                                                {schedule.location}
                                                             </div>
                                                         )}
                                                         {schedule.break_duration > 0 && (
