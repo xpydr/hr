@@ -16,12 +16,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import AppLayout from '@/layouts/app-layout';
-import { markAsRead, markAllAsRead, store } from '@/actions/App/Http/Controllers/NotificationController';
+import { markAsRead, markAsUnread, markAllAsRead, store } from '@/actions/App/Http/Controllers/NotificationController';
 import notifications from '@/routes/notifications';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Form, Head, router, usePage } from '@inertiajs/react';
-import { Bell, Check, CheckCheck, Plus } from 'lucide-react';
+import { Bell, Check, CheckCheck, MoreVertical, Plus } from 'lucide-react';
 import { useState } from 'react';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -65,6 +71,12 @@ export default function NotificationsIndex({ notifications, users, success }: No
 
     const handleMarkAsRead = (notificationId: number) => {
         router.post(markAsRead(notificationId).url, {}, {
+            preserveScroll: true,
+        });
+    };
+
+    const handleMarkAsUnread = (notificationId: number) => {
+        router.post(markAsUnread(notificationId).url, {}, {
             preserveScroll: true,
         });
     };
@@ -360,17 +372,47 @@ export default function NotificationsIndex({ notifications, users, success }: No
                                                         </div>
                                                     </div>
                                                 </div>
-                                                {isUnread && (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-                                                        onClick={() => handleMarkAsRead(notification.id)}
-                                                        title="Mark as read"
-                                                    >
-                                                        <Check className="size-4" />
-                                                    </Button>
-                                                )}
+                                                <div className="flex items-center gap-1">
+                                                    {isUnread && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                                                            onClick={() => handleMarkAsRead(notification.id)}
+                                                            title="Mark as read"
+                                                        >
+                                                            <Check className="size-4" />
+                                                        </Button>
+                                                    )}
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="shrink-0"
+                                                                title="More options"
+                                                            >
+                                                                <MoreVertical className="size-4" />
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end">
+                                                            {!isUnread && (
+                                                                <DropdownMenuItem
+                                                                    onClick={() => handleMarkAsUnread(notification.id)}
+                                                                >
+                                                                    Mark as unread
+                                                                </DropdownMenuItem>
+                                                            )}
+                                                            {isUnread && (
+                                                                <DropdownMenuItem
+                                                                    onClick={() => handleMarkAsRead(notification.id)}
+                                                                >
+                                                                    Mark as read
+                                                                </DropdownMenuItem>
+                                                            )}
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                </div>
                                             </div>
                                         </div>
                                     );

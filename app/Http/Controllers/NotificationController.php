@@ -80,6 +80,22 @@ class NotificationController extends Controller
     }
 
     /**
+     * Mark a notification as unread.
+     */
+    public function markAsUnread(Request $request, Notification $notification): RedirectResponse
+    {
+        if ($notification->recipient_id !== $request->user()->id) {
+            abort(403);
+        }
+
+        if ($notification->read_at !== null) {
+            $notification->update(['read_at' => null]);
+        }
+
+        return redirect()->route('notifications.index');
+    }
+
+    /**
      * Store a newly created notification.
      */
     public function store(StoreNotificationRequest $request): RedirectResponse
