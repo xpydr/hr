@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import AppLayout from '@/layouts/app-layout';
-import { markAsRead, markAsUnread, markAllAsRead, store } from '@/actions/App/Http/Controllers/NotificationController';
+import { markAsRead, markAsUnread, markAllAsRead, bulkMarkAsRead, bulkMarkAsUnread, store } from '@/actions/App/Http/Controllers/NotificationController';
 import notifications from '@/routes/notifications';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Form, Head, router, usePage } from '@inertiajs/react';
@@ -66,6 +66,8 @@ export default function NotificationsIndex({ notifications, users, success }: No
     const isAdmin = auth.user.role === 'admin';
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
     const [selectedRecipients, setSelectedRecipients] = useState<number[]>([]);
+    const [selectedNotifications, setSelectedNotifications] = useState<number[]>([]);
+    const [isSelectMode, setIsSelectMode] = useState(false);
 
     const unreadCount = notifications.filter((n) => !n.read_at).length;
 
@@ -84,6 +86,70 @@ export default function NotificationsIndex({ notifications, users, success }: No
     const handleMarkAllAsRead = () => {
         router.post(markAllAsRead().url, {}, {
             preserveScroll: true,
+        });
+    };
+
+    const handleToggleNotificationSelection = (notificationId: number) => {
+        setSelectedNotifications((prev) => {
+            const newSelection = prev.includes(notificationId)
+                ? prev.filter((id) => id !== notificationId)
+                : [...prev, notificationId];
+            
+            // Automatically turn off select mode when no notifications are selected
+            if (newSelection.length === 0) {
+                setIsSelectMode(false);
+            } else {
+                setIsSelectMode(true);
+            }
+            
+            return newSelection;
+        });
+    };
+
+    const handleSelectAll = () => {
+        if (selectedNotifications.length === notifications.length) {
+            setSelectedNotifications([]);
+            setIsSelectMode(false);
+        } else {
+            setSelectedNotifications(notifications.map((n) => n.id));
+            setIsSelectMode(true);
+        }
+    };
+
+    const handleClearSelection = () => {
+        setSelectedNotifications([]);
+        setIsSelectMode(false);
+    };
+
+    const handleBulkMarkAsRead = () => {
+        if (selectedNotifications.length === 0) {
+            return;
+        }
+
+        router.post(bulkMarkAsRead().url, {
+            notification_ids: selectedNotifications,
+        }, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setSelectedNotifications([]);
+                setIsSelectMode(false);
+            },
+        });
+    };
+
+    const handleBulkMarkAsUnread = () => {
+        if (selectedNotifications.length === 0) {
+            return;
+        }
+
+        router.post(bulkMarkAsUnread().url, {
+            notification_ids: selectedNotifications,
+        }, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setSelectedNotifications([]);
+                setIsSelectMode(false);
+            },
         });
     };
 
@@ -145,8 +211,40 @@ export default function NotificationsIndex({ notifications, users, success }: No
                                         {unreadCount} unread
                                     </Badge>
                                 )}
+                                {selectedNotifications.length > 0 && (
+                                    <Badge variant="outline" className="ml-2">
+                                        {selectedNotifications.length} selected
+                                    </Badge>
+                                )}
                             </div>
                             <div className="flex items-center gap-2">
+                                {selectedNotifications.length > 0 ? (
+                                    <>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleBulkMarkAsRead}
+                                        >
+                                            <Check className="size-4" />
+                                            Mark selected as read
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleBulkMarkAsUnread}
+                                        >
+                                            Mark selected as unread
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={handleClearSelection}
+                                        >
+                                            Clear selection
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <>
                                 {isAdmin && (
                                     <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
                                         <DialogTrigger asChild>
@@ -285,15 +383,17 @@ export default function NotificationsIndex({ notifications, users, success }: No
                                         </DialogContent>
                                     </Dialog>
                                 )}
-                                {unreadCount > 0 && (
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={handleMarkAllAsRead}
-                                    >
-                                        <CheckCheck className="size-4" />
-                                        Mark all as read
-                                    </Button>
+                                        {unreadCount > 0 && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={handleMarkAllAsRead}
+                                            >
+                                                <CheckCheck className="size-4" />
+                                                Mark all as read
+                                            </Button>
+                                        )}
+                                    </>
                                 )}
                             </div>
                         </div>
@@ -311,19 +411,59 @@ export default function NotificationsIndex({ notifications, users, success }: No
                             </div>
                         ) : (
                             <div className="flex flex-col gap-2">
+                                {notifications.length > 0 && (
+                                    <div className="flex items-center gap-2 pb-2">
+                                        <Checkbox
+                                            checked={selectedNotifications.length === notifications.length}
+                                            onCheckedChange={handleSelectAll}
+                                        />
+                                        <Label
+                                            className="cursor-pointer text-sm font-medium"
+                                            onClick={handleSelectAll}
+                                        >
+                                            Select all
+                                        </Label>
+                                    </div>
+                                )}
                                 {notifications.map((notification) => {
                                     const isUnread = !notification.read_at;
+                                    const isSelected = selectedNotifications.includes(notification.id);
 
                                     return (
                                         <div
                                             key={notification.id}
                                             className={`group relative rounded-lg border p-4 transition-colors ${
-                                                isUnread
-                                                    ? 'border-primary/50 bg-primary/5 dark:bg-primary/10'
-                                                    : 'border-border bg-card hover:bg-accent/50'
+                                                isSelectMode ? 'cursor-pointer' : ''
+                                            } ${
+                                                isSelected
+                                                    ? 'border-primary bg-primary/10 dark:bg-primary/20'
+                                                    : isUnread
+                                                        ? 'border-primary/50 bg-primary/5 dark:bg-primary/10 hover:bg-primary/10 dark:hover:bg-primary/20'
+                                                        : 'border-border bg-card hover:bg-accent/50'
                                             }`}
+                                            onClick={(e) => {
+                                                // Only allow card clicking in select mode
+                                                if (!isSelectMode) {
+                                                    return;
+                                                }
+                                                // Don't toggle if clicking on buttons or dropdown
+                                                if (
+                                                    (e.target as HTMLElement).closest('button') ||
+                                                    (e.target as HTMLElement).closest('[role="menu"]')
+                                                ) {
+                                                    return;
+                                                }
+                                                handleToggleNotificationSelection(notification.id);
+                                            }}
                                         >
                                             <div className="flex items-start justify-between gap-4">
+                                                <div className="flex items-start gap-3 flex-1">
+                                                    <Checkbox
+                                                        checked={isSelected}
+                                                        onCheckedChange={() => handleToggleNotificationSelection(notification.id)}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="mt-1 shrink-0"
+                                                    />
                                                 <div className="flex-1 space-y-1">
                                                     <div className="flex items-start gap-3">
                                                         {isUnread && (
@@ -412,6 +552,7 @@ export default function NotificationsIndex({ notifications, users, success }: No
                                                             )}
                                                         </DropdownMenuContent>
                                                     </DropdownMenu>
+                                                </div>
                                                 </div>
                                             </div>
                                         </div>

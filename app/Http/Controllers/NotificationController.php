@@ -96,6 +96,44 @@ class NotificationController extends Controller
     }
 
     /**
+     * Mark multiple notifications as read.
+     */
+    public function bulkMarkAsRead(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'notification_ids' => 'required|array',
+            'notification_ids.*' => 'required|integer|exists:notifications,id',
+        ]);
+
+        $request->user()
+            ->receivedNotifications()
+            ->whereIn('id', $request->notification_ids)
+            ->whereNull('read_at')
+            ->update(['read_at' => now()]);
+
+        return redirect()->route('notifications.index');
+    }
+
+    /**
+     * Mark multiple notifications as unread.
+     */
+    public function bulkMarkAsUnread(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'notification_ids' => 'required|array',
+            'notification_ids.*' => 'required|integer|exists:notifications,id',
+        ]);
+
+        $request->user()
+            ->receivedNotifications()
+            ->whereIn('id', $request->notification_ids)
+            ->whereNotNull('read_at')
+            ->update(['read_at' => null]);
+
+        return redirect()->route('notifications.index');
+    }
+
+    /**
      * Store a newly created notification.
      */
     public function store(StoreNotificationRequest $request): RedirectResponse

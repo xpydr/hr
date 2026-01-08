@@ -36,6 +36,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('notifications/{notification}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
         Route::post('notifications/{notification}/unread', [NotificationController::class, 'markAsUnread'])->name('notifications.unread');
         Route::post('notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
+        Route::post('notifications/bulk-read', [NotificationController::class, 'bulkMarkAsRead'])->name('notifications.bulk-read');
+        Route::post('notifications/bulk-unread', [NotificationController::class, 'bulkMarkAsUnread'])->name('notifications.bulk-unread');
 
         Route::get('schedule', [ScheduleController::class, 'index'])->name('schedule.index');
         Route::get('my-schedule', [ScheduleController::class, 'mySchedule'])->name('schedule.my-schedule');
