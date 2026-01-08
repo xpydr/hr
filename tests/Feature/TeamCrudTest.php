@@ -6,6 +6,7 @@ use App\Models\User;
 test('admin users can view the teams list', function () {
     $admin = User::factory()->admin()->create();
     $team = Team::factory()->create(['created_by' => $admin->id]);
+    $team->members()->attach($admin->id, ['joined_at' => now()]);
 
     $this->actingAs($admin)
         ->get(route('teams.index'))
@@ -19,6 +20,8 @@ test('admin users can view the teams list', function () {
 
 test('non-admin users cannot view the teams list', function () {
     $user = User::factory()->create();
+    $team = Team::factory()->create();
+    $team->members()->attach($user->id, ['joined_at' => now()]);
 
     $this->actingAs($user)
         ->get(route('teams.index'))
@@ -71,6 +74,7 @@ test('team creation requires valid website URL', function () {
 test('admin users can update a team', function () {
     $admin = User::factory()->admin()->create();
     $team = Team::factory()->create(['created_by' => $admin->id]);
+    $team->members()->attach($admin->id, ['joined_at' => now()]);
 
     $this->actingAs($admin)
         ->patch(route('teams.update', $team), [
@@ -96,6 +100,7 @@ test('admin users can update a team', function () {
 test('team update requires valid data', function () {
     $admin = User::factory()->admin()->create();
     $team = Team::factory()->create(['created_by' => $admin->id]);
+    $team->members()->attach($admin->id, ['joined_at' => now()]);
 
     $this->actingAs($admin)
         ->patch(route('teams.update', $team), [])
@@ -105,6 +110,7 @@ test('team update requires valid data', function () {
 test('admin users can delete a team', function () {
     $admin = User::factory()->admin()->create();
     $team = Team::factory()->create(['created_by' => $admin->id]);
+    $team->members()->attach($admin->id, ['joined_at' => now()]);
 
     $this->actingAs($admin)
         ->delete(route('teams.destroy', $team))
@@ -130,6 +136,7 @@ test('non-admin users cannot update teams', function () {
     $user = User::factory()->create();
     $admin = User::factory()->admin()->create();
     $team = Team::factory()->create(['created_by' => $admin->id]);
+    $team->members()->attach($user->id, ['joined_at' => now()]);
 
     $this->actingAs($user)
         ->patch(route('teams.update', $team), [
@@ -142,6 +149,7 @@ test('non-admin users cannot delete teams', function () {
     $user = User::factory()->create();
     $admin = User::factory()->admin()->create();
     $team = Team::factory()->create(['created_by' => $admin->id]);
+    $team->members()->attach($user->id, ['joined_at' => now()]);
 
     $this->actingAs($user)
         ->delete(route('teams.destroy', $team))

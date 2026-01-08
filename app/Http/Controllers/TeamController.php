@@ -59,14 +59,23 @@ class TeamController extends Controller
     public function store(StoreTeamRequest $request): RedirectResponse
     {
         $data = $request->validated();
-        $data['created_by'] = $request->user()->id;
+        $user = $request->user();
+        $data['created_by'] = $user->id;
 
         if ($request->hasFile('picture')) {
             $path = $request->file('picture')->store('teams', 'public');
             $data['picture'] = $path;
         }
 
-        Team::create($data);
+        $team = Team::create($data);
+
+        // Add creator to team as a member
+        $team->members()->attach($user->id, [
+            'joined_at' => now(),
+        ]);
+
+        // Set the team as the active team
+        $request->session()->put('current_team_id', $team->id);
 
         return redirect()->route('teams.index')->with('success', 'Team created successfully.');
     }
@@ -230,13 +239,21 @@ class TeamController extends Controller
             return redirect()->back()->with('error', 'You are already a member of this team.');
         }
 
+        // Check if user had no teams before joining
+        $hadNoTeams = $user->teams()->count() === 0;
+
         // Add user to team
         $team->members()->attach($user->id, [
             'joined_at' => now(),
         ]);
 
-        // Optionally switch to the newly joined team
+        // Set the team as the active team
         $request->session()->put('current_team_id', $team->id);
+
+        // If user had no teams before, redirect to dashboard
+        if ($hadNoTeams) {
+            return redirect()->route('dashboard')->with('success', "You have successfully joined {$team->name}.");
+        }
 
         return redirect()->back()->with('success', "You have successfully joined {$team->name}.");
     }

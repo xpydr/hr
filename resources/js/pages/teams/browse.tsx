@@ -4,21 +4,32 @@ import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import { join } from '@/actions/App/Http/Controllers/TeamController';
 import teams from '@/routes/teams';
-import { type BreadcrumbItem } from '@/types';
-import { Head, Link, router } from '@inertiajs/react';
+import { type BreadcrumbItem, type SharedData } from '@/types';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
-import { Building2, SearchIcon, Users } from 'lucide-react';
+import { Building2, Plus, SearchIcon, Users } from 'lucide-react';
 
-const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Teams',
-        href: teams.index().url,
-    },
-    {
-        title: 'Browse Teams',
-        href: teams.browse().url,
-    },
-];
+const getBreadcrumbs = (hasTeams: boolean): BreadcrumbItem[] => {
+    if (hasTeams) {
+        return [
+            {
+                title: 'Teams',
+                href: teams.index().url,
+            },
+            {
+                title: 'Browse Teams',
+                href: teams.browse().url,
+            },
+        ];
+    }
+
+    return [
+        {
+            title: 'Join Team',
+            href: teams.browse().url,
+        },
+    ];
+};
 
 interface Team {
     id: number;
@@ -42,6 +53,8 @@ interface BrowseTeamsProps {
 
 export default function BrowseTeams({ teams: teamsData, success, error, search = '' }: BrowseTeamsProps) {
     const [searchTerm, setSearchTerm] = useState(search);
+    const { teams: userTeams = [] } = usePage<SharedData>().props;
+    const hasTeams = userTeams.length > 0;
 
     const handleJoin = (team: Team) => {
         if (confirm(`Are you sure you want to join ${team.name}?`)) {
@@ -68,7 +81,7 @@ export default function BrowseTeams({ teams: teamsData, success, error, search =
     }, [searchTerm]);
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <AppLayout breadcrumbs={getBreadcrumbs(hasTeams)}>
             <Head title="Browse Teams" />
             <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 {success && (
@@ -83,16 +96,47 @@ export default function BrowseTeams({ teams: teamsData, success, error, search =
                     </div>
                 )}
 
+                {!hasTeams && (
+                    <Card className="border-primary/50 bg-primary/5">
+                        <CardContent className="pt-6">
+                            <div className="text-center">
+                                <h3 className="mb-2 text-lg font-semibold">You need to join a team</h3>
+                                <p className="mb-4 text-sm text-muted-foreground">
+                                    To access the application, you must join or create a team first.
+                                </p>
+                                <div className="flex justify-center gap-2">
+                                    <Button asChild>
+                                        <Link href={teams.create().url}>
+                                            <Plus className="mr-2 size-4" />
+                                            Create Team
+                                        </Link>
+                                    </Button>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+
                 <Card>
                     <CardHeader>
                         <div className="flex flex-col gap-4">
                             <div className="flex items-center justify-between">
-                                <CardTitle>Browse Teams</CardTitle>
-                                <Button asChild variant="outline">
-                                    <Link href={teams.index().url}>
-                                        Manage Teams
-                                    </Link>
-                                </Button>
+                                <CardTitle>{hasTeams ? 'Browse Teams' : 'Join a Team'}</CardTitle>
+                                {hasTeams && (
+                                    <Button asChild variant="outline">
+                                        <Link href={teams.index().url}>
+                                            Manage Teams
+                                        </Link>
+                                    </Button>
+                                )}
+                                {!hasTeams && (
+                                    <Button asChild>
+                                        <Link href={teams.create().url}>
+                                            <Plus className="mr-2 size-4" />
+                                            Create Team
+                                        </Link>
+                                    </Button>
+                                )}
                             </div>
                             <div className="relative">
                                 <SearchIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -108,10 +152,20 @@ export default function BrowseTeams({ teams: teamsData, success, error, search =
                     </CardHeader>
                     <CardContent>
                         {teamsData.length === 0 ? (
-                            <div className="py-8 text-center text-sm text-muted-foreground">
-                                {searchTerm
-                                    ? `No teams found matching "${searchTerm}".`
-                                    : 'No teams available to join.'}
+                            <div className="py-8 text-center">
+                                <p className="mb-4 text-sm text-muted-foreground">
+                                    {searchTerm
+                                        ? `No teams found matching "${searchTerm}".`
+                                        : 'No teams available to join.'}
+                                </p>
+                                {!hasTeams && !searchTerm && (
+                                    <Button asChild>
+                                        <Link href={teams.create().url}>
+                                            <Plus className="mr-2 size-4" />
+                                            Create Your First Team
+                                        </Link>
+                                    </Button>
+                                )}
                             </div>
                         ) : (
                             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

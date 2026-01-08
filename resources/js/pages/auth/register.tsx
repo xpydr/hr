@@ -10,11 +10,19 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import AuthLayout from '@/layouts/auth-layout';
 
-export default function Register() {
+interface RegisterProps {
+    invitationToken?: string | null;
+    invitationEmail?: string | null;
+}
+
+export default function Register({
+    invitationToken,
+    invitationEmail,
+}: RegisterProps) {
     return (
         <AuthLayout
-            title="Create an account"
-            description="Enter your details below to create your account"
+            title={invitationToken ? "Create account to accept invitation" : "Create an account"}
+            description={invitationToken ? `Create an account with ${invitationEmail} to accept the team invitation` : "Enter your details below to create your account"}
         >
             <Head title="Register" />
             <Form
@@ -54,7 +62,15 @@ export default function Register() {
                                     autoComplete="email"
                                     name="email"
                                     placeholder="email@example.com"
+                                    defaultValue={invitationEmail || ''}
+                                    readOnly={!!invitationEmail}
+                                    className={invitationEmail ? 'bg-muted' : ''}
                                 />
+                                {invitationEmail && (
+                                    <p className="text-xs text-muted-foreground">
+                                        This email is required to accept the team invitation.
+                                    </p>
+                                )}
                                 <InputError message={errors.email} />
                             </div>
 

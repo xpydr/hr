@@ -10,6 +10,7 @@ use App\Models\User;
 use App\UserStatus;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
 use Inertia\Inertia;
@@ -63,11 +64,40 @@ class TeamInvitationController extends Controller
     /**
      * Show the accept invitation page.
      */
-    public function show(Request $request, string $token): Response
+    public function show(Request $request, string $token): Response|RedirectResponse
     {
         $invitation = TeamInvitation::where('token', $token)
             ->valid()
             ->firstOrFail();
+
+        // If user is authenticated and email matches, auto-accept and redirect
+        if (Auth::check() && Auth::user()->email === $invitation->email) {
+            // Auto-accept the invitation
+            $user = Auth::user();
+
+            // Update user status from pending to active if it was pending
+            if ($user->status === UserStatus::Pending) {
+                $user->update(['status' => UserStatus::Active]);
+            }
+
+            // Attach user to team if not already attached
+            if (! $user->teams->contains($invitation->team)) {
+                $invitation->team->members()->attach($user->id, [
+                    'joined_at' => now(),
+                ]);
+            }
+
+            // Set the team as the active team
+            $request->session()->put('current_team_id', $invitation->team->id);
+
+            // Mark invitation as used
+            $invitation->update(['used_at' => now()]);
+
+            return redirect()->route('dashboard')->with('success', 'You have successfully joined the team.');
+        }
+
+        // If authenticated but email doesn't match, show error
+        $emailMismatch = Auth::check() && Auth::user()->email !== $invitation->email;
 
         return Inertia::render('teams/accept-invite', [
             'invitation' => [
@@ -79,6 +109,7 @@ class TeamInvitationController extends Controller
                 ],
                 'has_otp' => $invitation->otp_code !== null,
             ],
+            'emailMismatch' => $emailMismatch,
         ]);
     }
 
@@ -89,6 +120,7 @@ class TeamInvitationController extends Controller
     {
         $validated = $request->validated();
 
+        // Find invitation
         if (isset($validated['token'])) {
             $invitation = TeamInvitation::where('token', $validated['token'])
                 ->where('email', $validated['email'])
@@ -101,15 +133,28 @@ class TeamInvitationController extends Controller
                 ->firstOrFail();
         }
 
-        // Find or create user by email
-        $user = User::firstOrCreate(
-            ['email' => $validated['email']],
-            [
-                'name' => explode('@', $validated['email'])[0],
-                'password' => bcrypt(str()->random(32)), // Random password, user can reset
-            ]
-        );
+        // Check authentication first
+        if (! Auth::check()) {
+            // If not authenticated, validate email matches invitation and redirect to login/register
+            if ($validated['email'] !== $invitation->email) {
+                return redirect()->back()->withErrors(['email' => 'The email must match the invitation email.']);
+            }
 
+            // Store invitation token in session for redirect after login/register
+            $request->session()->put('invitation_token', $invitation->token);
+
+            return redirect()->route('login', ['invitation_token' => $invitation->token])
+                ->with('info', 'Please sign in or create an account to accept the invitation.');
+        }
+
+        // User is authenticated - verify email matches
+        $user = Auth::user();
+        if ($user->email !== $invitation->email) {
+            return redirect()->route('dashboard')
+                ->with('error', 'This invitation was for a different email address. Please sign out and sign in with the correct email.');
+        }
+
+        // Email matches - process invitation
         // Update user status from pending to active if it was pending
         if ($user->status === UserStatus::Pending) {
             $user->update(['status' => UserStatus::Active]);
@@ -122,18 +167,11 @@ class TeamInvitationController extends Controller
             ]);
         }
 
+        // Set the team as the active team
+        $request->session()->put('current_team_id', $invitation->team->id);
+
         // Mark invitation as used
         $invitation->update(['used_at' => now()]);
-
-        // If user is not authenticated, redirect to login
-        if (! auth()->check()) {
-            return redirect()->route('login')->with('success', 'You have been added to the team. Please log in.');
-        }
-
-        // If authenticated user is different, show message
-        if (auth()->user()->id !== $user->id) {
-            return redirect()->route('dashboard')->with('error', 'This invitation was for a different email address.');
-        }
 
         return redirect()->route('dashboard')->with('success', 'You have successfully joined the team.');
     }

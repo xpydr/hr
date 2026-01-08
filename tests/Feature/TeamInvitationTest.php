@@ -10,6 +10,7 @@ test('admin users can create team invitations', function () {
 
     $admin = User::factory()->admin()->create();
     $team = Team::factory()->create(['created_by' => $admin->id]);
+    $team->members()->attach($admin->id, ['joined_at' => now()]);
 
     $this->actingAs($admin)
         ->post(route('team-invitations.store'), [
@@ -40,6 +41,7 @@ test('team invitation generates token for magic link', function () {
 
     $admin = User::factory()->admin()->create();
     $team = Team::factory()->create(['created_by' => $admin->id]);
+    $team->members()->attach($admin->id, ['joined_at' => now()]);
 
     $this->actingAs($admin)
         ->post(route('team-invitations.store'), [
@@ -59,6 +61,7 @@ test('team invitation generates OTP code when requested', function () {
 
     $admin = User::factory()->admin()->create();
     $team = Team::factory()->create(['created_by' => $admin->id]);
+    $team->members()->attach($admin->id, ['joined_at' => now()]);
 
     $this->actingAs($admin)
         ->post(route('team-invitations.store'), [
@@ -78,6 +81,7 @@ test('team invitation generates both token and OTP when method is both', functio
 
     $admin = User::factory()->admin()->create();
     $team = Team::factory()->create(['created_by' => $admin->id]);
+    $team->members()->attach($admin->id, ['joined_at' => now()]);
 
     $this->actingAs($admin)
         ->post(route('team-invitations.store'), [
@@ -93,7 +97,7 @@ test('team invitation generates both token and OTP when method is both', functio
     expect(strlen($invitation->otp_code))->toBe(6);
 });
 
-test('users can accept invitation via magic link', function () {
+test('unauthenticated users are redirected to login when accepting invitation via magic link', function () {
     $admin = User::factory()->admin()->create();
     $team = Team::factory()->create(['created_by' => $admin->id]);
     $invitation = TeamInvitation::factory()->create([
@@ -102,22 +106,24 @@ test('users can accept invitation via magic link', function () {
         'created_by' => $admin->id,
     ]);
 
-    $this->post(route('teams.accept-invite.post'), [
+    $response = $this->post(route('teams.accept-invite.post'), [
         'token' => $invitation->token,
         'email' => 'newuser@example.com',
-    ])
-        ->assertRedirect(route('login'));
+    ]);
 
+    $response->assertRedirect(route('login', ['invitation_token' => $invitation->token]));
+    $response->assertSessionHas('info', 'Please sign in or create an account to accept the invitation.');
+
+    // User should not be created yet
     $user = User::where('email', 'newuser@example.com')->first();
-    expect($user)->not->toBeNull();
-    expect($user->teams)->toHaveCount(1);
-    expect($user->teams->first()->id)->toBe($team->id);
+    expect($user)->toBeNull();
 
+    // Invitation should not be marked as used
     $invitation->refresh();
-    expect($invitation->used_at)->not->toBeNull();
+    expect($invitation->used_at)->toBeNull();
 });
 
-test('users can accept invitation via OTP code', function () {
+test('unauthenticated users are redirected to login when accepting invitation via OTP code', function () {
     $admin = User::factory()->admin()->create();
     $team = Team::factory()->create(['created_by' => $admin->id]);
     $invitation = TeamInvitation::factory()->create([
@@ -127,19 +133,21 @@ test('users can accept invitation via OTP code', function () {
         'created_by' => $admin->id,
     ]);
 
-    $this->post(route('teams.accept-invite.post'), [
+    $response = $this->post(route('teams.accept-invite.post'), [
         'otp_code' => '123456',
         'email' => 'newuser@example.com',
-    ])
-        ->assertRedirect(route('login'));
+    ]);
 
+    $response->assertRedirect(route('login', ['invitation_token' => $invitation->token]));
+    $response->assertSessionHas('info', 'Please sign in or create an account to accept the invitation.');
+
+    // User should not be created yet
     $user = User::where('email', 'newuser@example.com')->first();
-    expect($user)->not->toBeNull();
-    expect($user->teams)->toHaveCount(1);
-    expect($user->teams->first()->id)->toBe($team->id);
+    expect($user)->toBeNull();
 
+    // Invitation should not be marked as used
     $invitation->refresh();
-    expect($invitation->used_at)->not->toBeNull();
+    expect($invitation->used_at)->toBeNull();
 });
 
 test('existing users can accept invitation and join team', function () {
@@ -152,7 +160,7 @@ test('existing users can accept invitation and join team', function () {
         'created_by' => $admin->id,
     ]);
 
-    $this->actingAs($user)
+    $response = $this->actingAs($user)
         ->post(route('teams.accept-invite.post'), [
             'token' => $invitation->token,
             'email' => 'existing@example.com',
@@ -163,6 +171,9 @@ test('existing users can accept invitation and join team', function () {
     $user->refresh();
     expect($user->teams)->toHaveCount(1);
     expect($user->teams->first()->id)->toBe($team->id);
+
+    // Verify the team is set as the active team
+    expect($response->getSession()->get('current_team_id'))->toBe($team->id);
 });
 
 test('cannot accept expired invitation', function () {
@@ -200,6 +211,7 @@ test('cannot accept already used invitation', function () {
 test('non-admin users cannot create invitations', function () {
     $user = User::factory()->create();
     $team = Team::factory()->create();
+    $team->members()->attach($user->id, ['joined_at' => now()]);
 
     $this->actingAs($user)
         ->post(route('team-invitations.store'), [
@@ -208,4 +220,95 @@ test('non-admin users cannot create invitations', function () {
             'method' => 'magic_link',
         ])
         ->assertForbidden();
+});
+
+test('authenticated user with matching email auto-accepts invitation when visiting link', function () {
+    $admin = User::factory()->admin()->create();
+    $user = User::factory()->create(['email' => 'invited@example.com']);
+    $team = Team::factory()->create(['created_by' => $admin->id]);
+    $invitation = TeamInvitation::factory()->create([
+        'team_id' => $team->id,
+        'email' => 'invited@example.com',
+        'created_by' => $admin->id,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->get(route('teams.accept-invite', ['token' => $invitation->token]))
+        ->assertRedirect(route('dashboard'))
+        ->assertSessionHas('success', 'You have successfully joined the team.');
+
+    $user->refresh();
+    expect($user->teams)->toHaveCount(1);
+    expect($user->teams->first()->id)->toBe($team->id);
+
+    // Verify the team is set as the active team
+    expect($response->getSession()->get('current_team_id'))->toBe($team->id);
+
+    $invitation->refresh();
+    expect($invitation->used_at)->not->toBeNull();
+});
+
+test('authenticated user with different email sees error message on invitation page', function () {
+    $admin = User::factory()->admin()->create();
+    $user = User::factory()->create(['email' => 'different@example.com']);
+    $team = Team::factory()->create(['created_by' => $admin->id]);
+    $invitation = TeamInvitation::factory()->create([
+        'team_id' => $team->id,
+        'email' => 'invited@example.com',
+        'created_by' => $admin->id,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->get(route('teams.accept-invite', ['token' => $invitation->token]));
+
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page
+        ->component('teams/accept-invite')
+        ->has('invitation')
+        ->where('emailMismatch', true)
+    );
+});
+
+test('unauthenticated user cannot accept invitation without signing in', function () {
+    $admin = User::factory()->admin()->create();
+    $team = Team::factory()->create(['created_by' => $admin->id]);
+    $invitation = TeamInvitation::factory()->create([
+        'team_id' => $team->id,
+        'email' => 'newuser@example.com',
+        'created_by' => $admin->id,
+    ]);
+
+    $response = $this->post(route('teams.accept-invite.post'), [
+        'token' => $invitation->token,
+        'email' => 'newuser@example.com',
+    ]);
+
+    $response->assertRedirect(route('login'));
+    $response->assertSessionHas('info', 'Please sign in or create an account to accept the invitation.');
+
+    // User should not be created yet
+    $user = User::where('email', 'newuser@example.com')->first();
+    expect($user)->toBeNull();
+
+    // Invitation should not be marked as used
+    $invitation->refresh();
+    expect($invitation->used_at)->toBeNull();
+});
+
+test('unauthenticated user redirected to login with invitation token after attempting to accept', function () {
+    $admin = User::factory()->admin()->create();
+    $team = Team::factory()->create(['created_by' => $admin->id]);
+    $invitation = TeamInvitation::factory()->create([
+        'team_id' => $team->id,
+        'email' => 'newuser@example.com',
+        'created_by' => $admin->id,
+    ]);
+
+    $response = $this->post(route('teams.accept-invite.post'), [
+        'token' => $invitation->token,
+        'email' => 'newuser@example.com',
+    ]);
+
+    $response->assertRedirect(route('login', ['invitation_token' => $invitation->token]));
+    expect($response->getSession()->get('invitation_token'))->toBe($invitation->token);
 });

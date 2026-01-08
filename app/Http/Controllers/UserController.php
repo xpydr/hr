@@ -21,8 +21,29 @@ class UserController extends Controller
     /**
      * Display the dashboard.
      */
-    public function index(Request $request): Response
+    public function index(Request $request): Response|RedirectResponse
     {
+        // Check if user has pending invitation after login/register
+        $invitationToken = $request->session()->get('invitation_token');
+        if ($invitationToken) {
+            $request->session()->forget('invitation_token');
+
+            return redirect()->route('teams.accept-invite', ['token' => $invitationToken]);
+        }
+
+        $user = $request->user();
+
+        // Auto-select first team if user has teams but no team is selected
+        if ($user && $user->teams()->count() > 0) {
+            $currentTeamId = $request->session()->get('current_team_id');
+            if (! $currentTeamId) {
+                $firstTeam = $user->teams()->first();
+                if ($firstTeam) {
+                    $request->session()->put('current_team_id', $firstTeam->id);
+                }
+            }
+        }
+
         return Inertia::render('dashboard');
     }
 

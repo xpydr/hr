@@ -15,17 +15,21 @@ interface LoginProps {
     status?: string;
     canResetPassword: boolean;
     canRegister: boolean;
+    invitationToken?: string | null;
+    invitationEmail?: string | null;
 }
 
 export default function Login({
     status,
     canResetPassword,
     canRegister,
+    invitationToken,
+    invitationEmail,
 }: LoginProps) {
     return (
         <AuthLayout
-            title="Log in to your account"
-            description="Enter your email and password below to log in"
+            title={invitationToken ? "Sign in to accept invitation" : "Log in to your account"}
+            description={invitationToken ? `Sign in with ${invitationEmail} to accept the team invitation` : "Enter your email and password below to log in"}
         >
             <Head title="Log in" />
 
@@ -44,11 +48,19 @@ export default function Login({
                                     type="email"
                                     name="email"
                                     required
-                                    autoFocus
+                                    autoFocus={!invitationEmail}
                                     tabIndex={1}
                                     autoComplete="email"
                                     placeholder="email@example.com"
+                                    defaultValue={invitationEmail || ''}
+                                    readOnly={!!invitationEmail}
+                                    className={invitationEmail ? 'bg-muted' : ''}
                                 />
+                                {invitationEmail && (
+                                    <p className="text-xs text-muted-foreground">
+                                        This email is required to accept the team invitation.
+                                    </p>
+                                )}
                                 <InputError message={errors.email} />
                             </div>
 

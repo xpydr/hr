@@ -47,11 +47,20 @@ class FortifyServiceProvider extends ServiceProvider
      */
     private function configureViews(): void
     {
-        Fortify::loginView(fn (Request $request) => Inertia::render('auth/login', [
-            'canResetPassword' => Features::enabled(Features::resetPasswords()),
-            'canRegister' => Features::enabled(Features::registration()),
-            'status' => $request->session()->get('status'),
-        ]));
+        Fortify::loginView(function (Request $request) {
+            $invitationToken = $request->query('invitation_token');
+            if ($invitationToken) {
+                $request->session()->put('invitation_token', $invitationToken);
+            }
+
+            return Inertia::render('auth/login', [
+                'canResetPassword' => Features::enabled(Features::resetPasswords()),
+                'canRegister' => Features::enabled(Features::registration()),
+                'status' => $request->session()->get('status'),
+                'invitationToken' => $invitationToken,
+                'invitationEmail' => $invitationToken ? $this->getInvitationEmail($invitationToken) : null,
+            ]);
+        });
 
         Fortify::resetPasswordView(fn (Request $request) => Inertia::render('auth/reset-password', [
             'email' => $request->email,
@@ -66,11 +75,37 @@ class FortifyServiceProvider extends ServiceProvider
             'status' => $request->session()->get('status'),
         ]));
 
-        Fortify::registerView(fn () => Inertia::render('auth/register'));
+        Fortify::registerView(function (Request $request) {
+            $invitationToken = $request->query('invitation_token');
+            if ($invitationToken) {
+                $request->session()->put('invitation_token', $invitationToken);
+            }
+
+            return Inertia::render('auth/register', [
+                'invitationToken' => $invitationToken,
+                'invitationEmail' => $invitationToken ? $this->getInvitationEmail($invitationToken) : null,
+            ]);
+        });
 
         Fortify::twoFactorChallengeView(fn () => Inertia::render('auth/two-factor-challenge'));
 
         Fortify::confirmPasswordView(fn () => Inertia::render('auth/confirm-password'));
+    }
+
+    /**
+     * Get invitation email from token.
+     */
+    private function getInvitationEmail(?string $token): ?string
+    {
+        if (! $token) {
+            return null;
+        }
+
+        $invitation = \App\Models\TeamInvitation::where('token', $token)
+            ->valid()
+            ->first();
+
+        return $invitation?->email;
     }
 
     /**
