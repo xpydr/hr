@@ -22,8 +22,7 @@ import {
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import AppLayout from '@/layouts/app-layout';
-import { sendMagicLinkInvite, store, update, destroy } from '@/actions/App/Http/Controllers/UserController';
-import userRoutes from '@/routes/users';
+import userRoutes, { sendMagicLinkInvite, store, update, destroy } from '@/routes/users';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Form, Head, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
